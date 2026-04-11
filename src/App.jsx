@@ -135,7 +135,7 @@ function Painel({ usuario, perfil, onLogout }) {
     setMsgs(novas);
     setLoading(true);
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1000, system: perfil?.system_prompt || "Você é um assistente autônomo. Responda em português brasileiro.", messages: novas.map(m => ({ role: m.role, content: m.content })) }) });
+      const res = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", headers: { "Content-Type": "application/json", "x-api-key": import.meta.env.VITE_ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01" }, body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1000, system: perfil?.system_prompt || "Você é um assistente autônomo. Responda em português brasileiro.", messages: novas.map(m => ({ role: m.role, content: m.content })) }) });
       const data = await res.json();
       const reply = data.content?.filter(b => b.type === "text").map(b => b.text).join("") || "Erro.";
       setMsgs(p => [...p, { role: "assistant", content: reply }]);
