@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-const GEMINI_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+const RAILWAY_URL = "https://agente-autonomo-production-cb49.up.railway.app";
 
 const REDES = [
   { id: "instagram", label: "Instagram", icon: "📸", color: "#E1306C" },
@@ -41,28 +41,6 @@ function Btn({ children, onClick, disabled, variant = "primary", style: s = {} }
 
 function Tag({ label, selected, onClick }) {
   return <button onClick={onClick} style={{ padding: "6px 14px", borderRadius: 20, fontSize: 13, cursor: "pointer", border: `1px solid ${selected ? "#a78bfa" : "#2a2a3e"}`, background: selected ? "#a78bfa22" : "transparent", color: selected ? "#a78bfa" : "#6a6a8a", fontFamily: "inherit", transition: "all 0.15s" }}>{label}</button>;
-}
-
-async function chamarGemini(historico, systemPrompt) {
-  const contents = [
-    { role: "user", parts: [{ text: systemPrompt }] },
-    { role: "model", parts: [{ text: "Entendido! Estou pronto para ajudar." }] },
-    ...historico.map(m => ({
-      role: m.role === "user" ? "user" : "model",
-      parts: [{ text: m.content }]
-    }))
-  ];
-
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contents }),
-    }
-  );
-  const data = await res.json();
-  return data.candidates?.[0]?.content?.parts?.[0]?.text || "Erro ao responder.";
 }
 
 function TelaLogin({ onLogin, onCadastro }) {
@@ -203,11 +181,26 @@ function Painel({ usuario, perfil, onLogout }) {
     setMsgs(novas);
     setLoading(true);
     try {
-      const reply = await chamarGemini(novas, perfil?.system_prompt || "Você é um assistente autônomo. Responda em português brasileiro.");
-      setMsgs(p => [...p, { role: "assistant", content: reply }]);
+      const res = await fetch(`${RAILWAY_URL}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mensagem: texto,
+          historico: msgs,
+          systemPrompt: perfil?.system_prompt || "Você é um assistente autônomo. Responda em português brasileiro.",
+        }),
+      });
+      const data = await res.json();
+      if (data.resposta) {
+        setMsgs([...novas, { role: "assistant", content: data.resposta }]);
+      } else {
+        setMsgs([...novas, { role: "assistant", content: "Erro: " + (data.erro || "Tente novamente.") }]);
+      }
     } catch (e) {
-      setMsgs(p => [...p, { role: "assistant", content: "Erro de conexão. Verifique a chave da API." }]);
-    } finally { setLoading(false); }
+      setMsgs([...novas, { role: "assistant", content: "Erro de conexão com o servidor." }]);
+    } finally {
+      setLoading(false);
+    }
   }
 
   const redesConectadas = Object.keys(conexoes).filter(k => conexoes[k]).length;
@@ -320,4 +313,3 @@ export default function App() {
     </div>
   );
 }
-
