@@ -5,7 +5,7 @@ const { createClient } = require('@supabase/supabase-js');
 const app = express();
 app.use(express.json());
 
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+const GEMINI_API_KEY = process.env.ANTHROPIC_API_KEY;
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN || 'agente123';
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
