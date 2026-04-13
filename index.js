@@ -35,7 +35,7 @@ app.post('/chat', async (req, res) => {
   try {
     const { mensagem, historico: hist, systemPrompt } = req.body;
     const msgs = [...(hist || []), { role: 'user', content: mensagem }];
-    const resposta = await chamarGemini(msgs, systemPrompt || 'Você é um assistente autônomo. Responda em português brasileiro.');
+    const resposta = await chamarGemini(msgs, systemPrompt || 'Voce e um assistente autonomo. Responda em portugues brasileiro.');
     res.json({ resposta, historico: [...msgs, { role: 'assistant', content: resposta }] });
   } catch (err) {
     console.error(err.message);
@@ -64,7 +64,7 @@ app.post('/webhook', async (req, res) => {
       const phoneId = entry?.changes?.[0]?.value?.metadata?.phone_number_id;
       if (!historico[numero]) historico[numero] = [];
       historico[numero].push({ role: 'user', content: texto });
-      const resposta = await chamarGemini(historico[numero], 'Você é um assistente autônomo. Responda em português brasileiro.');
+      const resposta = await chamarGemini(historico[numero], 'Voce e um assistente autonomo. Responda em portugues brasileiro.');
       historico[numero].push({ role: 'assistant', content: resposta });
       const { data: conexao } = await supabase.from('conexoes').select('access_token').eq('phone_id', phoneId).single();
       if (conexao) {
@@ -81,7 +81,7 @@ app.post('/webhook', async (req, res) => {
   }
 });
 
-app.get('/', (req, res) => res.send('Agente Autônomo rodando!'));
+app.get('/', (req, res) => res.send('Agente Autonomo rodando!'));
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Servidor na porta ${PORT}`));
