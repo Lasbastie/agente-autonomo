@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const BACKEND_URL = "https://agente-autonomo-production-cb49.up.railway.app";
 const SUPABASE_URL = "https://ecbuwynkpspzmcqrikdy.supabase.co";
-const SUPABASE_KEY = "sb_publishable_DrDXBf5wnJYNpoAHVqAf_A_SQfnY";
+const SUPABASE_KEY = "sb_publishable_DrDXBf5wnJYNpoAHVqAf_A_SQfnY0Zs";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
