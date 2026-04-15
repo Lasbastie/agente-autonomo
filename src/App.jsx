@@ -8,11 +8,11 @@ const SUPABASE_KEY = "sb_publishable_DrDXBf5wnJYNpoAHVqAf_A_SQfnY0Zs";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const MODULES = [
-  { id: "geral", label: "Assistente", icon: "◈", color: "#a78bfa", desc: "Assistente geral para qualquer tarefa", systemPrompt: "Você é um assistente autônomo inteligente e proativo. Ajude o usuário com qualquer tarefa de forma direta, clara e eficiente. Responda sempre em português brasileiro." },
-  { id: "instagram", label: "Instagram", icon: "◉", color: "#f472b6", desc: "Gestão e conteúdo para Instagram", systemPrompt: "Você é um especialista em gestão de Instagram e criação de conteúdo. Ajude com legendas, hashtags, estratégia de conteúdo, calendário editorial, roteiros para Reels. Responda sempre em português brasileiro." },
-  { id: "whatsapp", label: "WhatsApp", icon: "◎", color: "#34d399", desc: "Mensagens, listas e broadcasts", systemPrompt: "Você é um especialista em comunicação via WhatsApp para negócios. Ajude com mensagens de follow-up, broadcasts, respostas rápidas. Responda sempre em português brasileiro." },
-  { id: "copies", label: "Copies", icon: "◇", color: "#fb923c", desc: "Roteiros e copies com tendências", systemPrompt: "Você é um especialista em copywriting e marketing digital. Crie copies persuasivos, roteiros de vídeo, scripts de vendas. Responda sempre em português brasileiro." },
-  { id: "tarefas", label: "Tarefas", icon: "◻", color: "#60a5fa", desc: "Organização e produtividade", systemPrompt: "Você é um assistente de produtividade e organização. Ajude a priorizar tarefas, criar listas, planejar agenda. Responda sempre em português brasileiro." },
+  { id: "geral", label: "Assistente", icon: "◈", color: "#a78bfa", desc: "Assistente geral para qualquer tarefa", systemPrompt: "Você é um assistente autônomo inteligente e proativo. Responda sempre em português brasileiro." },
+  { id: "instagram", label: "Instagram", icon: "◉", color: "#f472b6", desc: "Gestão e conteúdo para Instagram", systemPrompt: "Você é especialista em Instagram. Ajude com legendas, hashtags, Reels, Stories. Responda em português brasileiro." },
+  { id: "whatsapp", label: "WhatsApp", icon: "◎", color: "#34d399", desc: "Mensagens, listas e broadcasts", systemPrompt: "Você é especialista em WhatsApp para negócios. Ajude com mensagens, broadcasts, follow-ups. Responda em português brasileiro." },
+  { id: "copies", label: "Copies", icon: "◇", color: "#fb923c", desc: "Roteiros e copies com tendências", systemPrompt: "Você é especialista em copywriting. Crie copies persuasivos, roteiros, scripts de vendas. Responda em português brasileiro." },
+  { id: "tarefas", label: "Tarefas", icon: "◻", color: "#60a5fa", desc: "Organização e produtividade", systemPrompt: "Você é assistente de produtividade. Ajude com tarefas, agenda, metas. Responda em português brasileiro." },
 ];
 
 function Login({ onLogin }) {
@@ -33,7 +33,7 @@ function Login({ onLogin }) {
     } else {
       const { error } = await supabase.auth.signUp({ email, password, options: { data: { nome } } });
       if (error) setErro("Erro ao criar conta: " + error.message);
-      else setSucesso("Conta criada! Verifique seu email para confirmar.");
+      else setSucesso("Conta criada! Verifique seu email.");
     }
     setLoading(false);
   };
@@ -54,9 +54,7 @@ function Login({ onLogin }) {
               </button>
             ))}
           </div>
-          {modo === "cadastro" && (
-            <input value={nome} onChange={e => setNome(e.target.value)} placeholder="Seu nome" style={{ width: "100%", padding: "11px 14px", borderRadius: 10, border: "1px solid #2a2a3e", background: "#06060f", color: "#e2e8f0", fontSize: 13, marginBottom: 10, boxSizing: "border-box", outline: "none" }} />
-          )}
+          {modo === "cadastro" && <input value={nome} onChange={e => setNome(e.target.value)} placeholder="Seu nome" style={{ width: "100%", padding: "11px 14px", borderRadius: 10, border: "1px solid #2a2a3e", background: "#06060f", color: "#e2e8f0", fontSize: 13, marginBottom: 10, boxSizing: "border-box", outline: "none" }} />}
           <input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" type="email" style={{ width: "100%", padding: "11px 14px", borderRadius: 10, border: "1px solid #2a2a3e", background: "#06060f", color: "#e2e8f0", fontSize: 13, marginBottom: 10, boxSizing: "border-box", outline: "none" }} />
           <input value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === "Enter" && handleSubmit()} placeholder="Senha" type="password" style={{ width: "100%", padding: "11px 14px", borderRadius: 10, border: "1px solid #2a2a3e", background: "#06060f", color: "#e2e8f0", fontSize: 13, marginBottom: 16, boxSizing: "border-box", outline: "none" }} />
           {erro && <div style={{ fontSize: 12, color: "#f87171", marginBottom: 12, padding: "8px 12px", background: "#f8717122", borderRadius: 8 }}>{erro}</div>}
@@ -66,6 +64,82 @@ function Login({ onLogin }) {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function WhatsAppTab({ userId }) {
+  const [status, setStatus] = useState("disconnected");
+  const [qr, setQr] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const verificarStatus = async () => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/whatsapp/status/${userId}`);
+      const data = await res.json();
+      setStatus(data.status);
+      setQr(data.qr);
+    } catch {}
+  };
+
+  useEffect(() => {
+    verificarStatus();
+    const interval = setInterval(verificarStatus, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const conectar = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/whatsapp/connect`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
+      });
+      const data = await res.json();
+      setStatus(data.status);
+      setQr(data.qr);
+    } catch {}
+    setLoading(false);
+  };
+
+  const desconectar = async () => {
+    await fetch(`${BACKEND_URL}/whatsapp/disconnect/${userId}`, { method: "POST" });
+    setStatus("disconnected");
+    setQr(null);
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "#e2e8f0" }}>WhatsApp</div>
+          <div style={{ fontSize: 12, color: status === "connected" ? "#34d399" : status === "qr" ? "#fb923c" : "#6a6a8a" }}>
+            {status === "connected" ? "● Conectado" : status === "qr" ? "● Escaneie o QR Code" : status === "connecting" ? "● Conectando..." : "● Desconectado"}
+          </div>
+        </div>
+        {status === "connected" ? (
+          <button onClick={desconectar} style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid #f8717144", background: "#f8717122", color: "#f87171", fontSize: 13, cursor: "pointer" }}>Desconectar</button>
+        ) : (
+          <button onClick={conectar} disabled={loading || status === "connecting"} style={{ padding: "8px 16px", borderRadius: 10, border: "none", background: "#34d399", color: "#0a0a18", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+            {loading ? "Aguarde..." : "Conectar"}
+          </button>
+        )}
+      </div>
+
+      {qr && (
+        <div style={{ textAlign: "center", padding: 20, background: "#0d0d1a", borderRadius: 16, border: "1px solid #2a2a3e" }}>
+          <div style={{ fontSize: 13, color: "#6a6a8a", marginBottom: 16 }}>Abra o WhatsApp → Aparelhos conectados → Conectar aparelho</div>
+          <img src={qr} alt="QR Code" style={{ width: 220, height: 220, borderRadius: 12 }} />
+        </div>
+      )}
+
+      {status === "connected" && (
+        <div style={{ padding: 16, background: "#34d39911", border: "1px solid #34d39944", borderRadius: 12 }}>
+          <div style={{ fontSize: 13, color: "#34d399", fontWeight: 600, marginBottom: 4 }}>✓ WhatsApp conectado!</div>
+          <div style={{ fontSize: 12, color: "#6a6a8a" }}>O agente está respondendo automaticamente as mensagens recebidas no seu WhatsApp.</div>
+        </div>
+      )}
     </div>
   );
 }
@@ -88,18 +162,13 @@ export default function App() {
       setUser(data.session?.user || null);
       setLoadingAuth(false);
     });
-    supabase.auth.onAuthStateChange((_e, session) => {
-      setUser(session?.user || null);
-    });
+    supabase.auth.onAuthStateChange((_e, session) => setUser(session?.user || null));
     const params = new URLSearchParams(window.location.search);
     if (params.get("plano") === "pro") setIsPro(true);
   }, []);
 
   useEffect(() => {
-    if (user) {
-      verificarAssinatura();
-      carregarHistorico();
-    }
+    if (user) { verificarAssinatura(); carregarHistorico(); }
   }, [user]);
 
   useEffect(() => {
@@ -108,11 +177,7 @@ export default function App() {
 
   const verificarAssinatura = async () => {
     try {
-      const res = await fetch(`${BACKEND_URL}/verificar-assinatura`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: user.email }),
-      });
+      const res = await fetch(`${BACKEND_URL}/verificar-assinatura`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: user.email }) });
       const data = await res.json();
       setIsPro(data.ativo);
     } catch {}
@@ -120,23 +185,14 @@ export default function App() {
 
   const assinarPro = async () => {
     try {
-      const res = await fetch(`${BACKEND_URL}/criar-assinatura`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: user.email, userId: user.id }),
-      });
+      const res = await fetch(`${BACKEND_URL}/criar-assinatura`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: user.email, userId: user.id }) });
       const data = await res.json();
       if (data.url) window.location.href = data.url;
     } catch {}
   };
 
   const carregarHistorico = async () => {
-    const { data } = await supabase
-      .from("conversas")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("atualizado_em", { ascending: false })
-      .limit(20);
+    const { data } = await supabase.from("conversas").select("*").eq("user_id", user.id).order("atualizado_em", { ascending: false }).limit(20);
     if (data) setHistorico(data);
   };
 
@@ -152,45 +208,27 @@ export default function App() {
 
   const abrirConversa = (conversa) => {
     const mod = MODULES.find(m => m.id === conversa.modulo) || MODULES[0];
-    setModulo(mod);
-    setMessages(conversa.mensagens);
-    setConversaId(conversa.id);
-    setAba("agente");
-  };
-
-  const novaConversa = () => {
-    setMessages([]);
-    setConversaId(null);
-    setAba("agente");
+    setModulo(mod); setMessages(conversa.mensagens); setConversaId(conversa.id); setAba("agente");
   };
 
   const sair = async () => {
     await supabase.auth.signOut();
-    setUser(null);
-    setMessages([]);
-    setIsPro(false);
-    setHistorico([]);
+    setUser(null); setMessages([]); setIsPro(false); setHistorico([]);
   };
 
   const enviar = async () => {
     if (!input.trim() || loading) return;
     const userMsg = { role: "user", content: input.trim() };
     const newMessages = [...messages, userMsg];
-    setMessages(newMessages);
-    setInput("");
-    setLoading(true);
+    setMessages(newMessages); setInput(""); setLoading(true);
     try {
-      const res = await fetch(`${BACKEND_URL}/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: newMessages, systemPrompt: modulo.systemPrompt }),
-      });
+      const res = await fetch(`${BACKEND_URL}/chat`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: newMessages, systemPrompt: modulo.systemPrompt }) });
       const data = await res.json();
       const finalMessages = [...newMessages, { role: "assistant", content: data.response || "Erro: " + (data.error || "Tente novamente.") }];
       setMessages(finalMessages);
       salvarConversa(finalMessages, modulo.id);
     } catch {
-      setMessages([...newMessages, { role: "assistant", content: "Erro de conexão. Verifique o servidor." }]);
+      setMessages([...newMessages, { role: "assistant", content: "Erro de conexão." }]);
     }
     setLoading(false);
   };
@@ -223,9 +261,9 @@ export default function App() {
         )}
 
         <div style={{ display: "flex", gap: 4, marginBottom: 20, background: "#0d0d1a", borderRadius: 12, padding: 4 }}>
-          {["agente", "historico", "modulos"].map(a => (
-            <button key={a} onClick={() => setAba(a)} style={{ flex: 1, padding: "8px 0", borderRadius: 9, border: "none", background: aba === a ? "#1a1a2e" : "transparent", color: aba === a ? "#e2e8f0" : "#6a6a8a", fontSize: 12, cursor: "pointer", fontWeight: aba === a ? 600 : 400 }}>
-              {a === "agente" ? "💬 Agente" : a === "historico" ? "🕘 Histórico" : "⚡ Módulos"}
+          {["agente", "whatsapp", "historico", "modulos"].map(a => (
+            <button key={a} onClick={() => setAba(a)} style={{ flex: 1, padding: "8px 0", borderRadius: 9, border: "none", background: aba === a ? "#1a1a2e" : "transparent", color: aba === a ? "#e2e8f0" : "#6a6a8a", fontSize: 11, cursor: "pointer", fontWeight: aba === a ? 600 : 400 }}>
+              {a === "agente" ? "💬" : a === "whatsapp" ? "📱 Zap" : a === "historico" ? "🕘" : "⚡"}
             </button>
           ))}
         </div>
@@ -255,11 +293,13 @@ export default function App() {
           </div>
         )}
 
+        {aba === "whatsapp" && <WhatsAppTab userId={user.id} />}
+
         {aba === "historico" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
               <div style={{ fontSize: 12, color: "#6a6a8a" }}>Conversas salvas</div>
-              <button onClick={novaConversa} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #a78bfa44", background: "#a78bfa22", color: "#a78bfa", fontSize: 12, cursor: "pointer" }}>+ Nova conversa</button>
+              <button onClick={() => { setMessages([]); setConversaId(null); setAba("agente"); }} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #a78bfa44", background: "#a78bfa22", color: "#a78bfa", fontSize: 12, cursor: "pointer" }}>+ Nova</button>
             </div>
             {historico.length === 0 && <div style={{ textAlign: "center", color: "#4a4a6a", marginTop: 40, fontSize: 13 }}>Nenhuma conversa salva ainda.</div>}
             {historico.map(c => {
