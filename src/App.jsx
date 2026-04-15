@@ -43,7 +43,7 @@ function Login({ onLogin }) {
       <div style={{ width: "100%", maxWidth: 380 }}>
         <div style={{ textAlign: "center", marginBottom: 32 }}>
           <div style={{ fontSize: 40, marginBottom: 12 }}>◈</div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: "#e2e8f0" }}>Agente Autônomo</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: "#e2e8f0" }}>Agente Creator</div>
           <div style={{ fontSize: 13, color: "#6a6a8a", marginTop: 6 }}>Seu assistente inteligente</div>
         </div>
         <div style={{ background: "#0d0d1a", border: "1px solid #1e1e3a", borderRadius: 16, padding: 24 }}>
@@ -73,11 +73,13 @@ function Login({ onLogin }) {
 export default function App() {
   const [user, setUser] = useState(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
+  const [isPro, setIsPro] = useState(false);
   const [modulo, setModulo] = useState(MODULES[0]);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [aba, setAba] = useState("agente");
+  const [adVisible, setAdVisible] = useState(true);
   const bottomRef = useRef(null);
 
   useEffect(() => {
@@ -88,16 +90,47 @@ export default function App() {
     supabase.auth.onAuthStateChange((_e, session) => {
       setUser(session?.user || null);
     });
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("plano") === "pro") setIsPro(true);
   }, []);
+
+  useEffect(() => {
+    if (user) verificarAssinatura();
+  }, [user]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
+  const verificarAssinatura = async () => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/verificar-assinatura`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: user.email }),
+      });
+      const data = await res.json();
+      setIsPro(data.ativo);
+    } catch {}
+  };
+
+  const assinarPro = async () => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/criar-assinatura`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: user.email, userId: user.id }),
+      });
+      const data = await res.json();
+      if (data.url) window.location.href = data.url;
+    } catch {}
+  };
+
   const sair = async () => {
     await supabase.auth.signOut();
     setUser(null);
     setMessages([]);
+    setIsPro(false);
   };
 
   const enviar = async () => {
@@ -129,16 +162,38 @@ export default function App() {
   return (
     <div style={{ minHeight: "100vh", background: "#0a0a18", color: "#e2e8f0", fontFamily: "system-ui, sans-serif", display: "flex", flexDirection: "column", alignItems: "center", padding: "24px 16px" }}>
       <div style={{ width: "100%", maxWidth: 600 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <div style={{ width: 40, height: 40, borderRadius: 12, background: modulo.color + "22", border: `1px solid ${modulo.color}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: modulo.color }}>{modulo.icon}</div>
             <div>
-              <div style={{ fontWeight: 700, fontSize: 15 }}>Olá, {nomeUsuario}!</div>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>Olá, {nomeUsuario}! {isPro && <span style={{ fontSize: 11, background: "#a78bfa22", color: "#a78bfa", padding: "2px 8px", borderRadius: 6, marginLeft: 4 }}>PRO</span>}</div>
               <div style={{ fontSize: 12, color: "#6a6a8a" }}>Agente ativo · {modulo.label}</div>
             </div>
           </div>
           <button onClick={sair} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #2a2a3e", background: "#12122a", color: "#6a6a8a", fontSize: 12, cursor: "pointer" }}>Sair</button>
         </div>
+
+        {/* Banner Ad - só para usuários não Pro */}
+        {!isPro && adVisible && (
+          <div style={{ background: "#12122a", border: "1px solid #2a2a3e", borderRadius: 12, padding: "12px 16px", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ fontSize: 12, color: "#6a6a8a" }}>
+              📢 Anúncio — <span style={{ color: "#a78bfa", cursor: "pointer", fontWeight: 600 }} onClick={assinarPro}>Remova por R$9,90/mês</span>
+            </div>
+            <button onClick={() => setAdVisible(false)} style={{ background: "none", border: "none", color: "#4a4a6a", cursor: "pointer", fontSize: 16 }}>×</button>
+          </div>
+        )}
+
+        {/* Upgrade Banner - só para não Pro */}
+        {!isPro && (
+          <div onClick={assinarPro} style={{ background: "linear-gradient(135deg, #a78bfa22, #f472b622)", border: "1px solid #a78bfa44", borderRadius: 12, padding: "10px 16px", marginBottom: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ fontSize: 13, color: "#e2e8f0" }}>⚡ <strong>Agente Creator Pro</strong> — Sem anúncios por R$9,90/mês</div>
+            <div style={{ fontSize: 12, color: "#a78bfa", fontWeight: 600 }}>Assinar →</div>
+          </div>
+        )}
+
+        {/* Abas */}
         <div style={{ display: "flex", gap: 4, marginBottom: 20, background: "#0d0d1a", borderRadius: 12, padding: 4 }}>
           {["agente", "modulos"].map(a => (
             <button key={a} onClick={() => setAba(a)} style={{ flex: 1, padding: "8px 0", borderRadius: 9, border: "none", background: aba === a ? "#1a1a2e" : "transparent", color: aba === a ? "#e2e8f0" : "#6a6a8a", fontSize: 13, cursor: "pointer", fontWeight: aba === a ? 600 : 400 }}>
@@ -146,6 +201,8 @@ export default function App() {
             </button>
           ))}
         </div>
+
+        {/* Chat */}
         {aba === "agente" && (
           <div>
             <div style={{ minHeight: 400, maxHeight: 500, overflowY: "auto", display: "flex", flexDirection: "column", gap: 12, marginBottom: 16 }}>
@@ -170,6 +227,8 @@ export default function App() {
             </div>
           </div>
         )}
+
+        {/* Módulos */}
         {aba === "modulos" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={{ fontSize: 12, color: "#6a6a8a", marginBottom: 4 }}>Selecione o módulo ativo</div>
@@ -185,6 +244,7 @@ export default function App() {
             ))}
           </div>
         )}
+
       </div>
     </div>
   );
