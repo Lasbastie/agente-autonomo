@@ -76,10 +76,11 @@ export default function App() {
   const [isPro, setIsPro] = useState(false);
   const [modulo, setModulo] = useState(MODULES[0]);
   const [messages, setMessages] = useState([]);
+  const [conversaId, setConversaId] = useState(null);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [aba, setAba] = useState("agente");
-  const [adVisible, setAdVisible] = useState(true);
+  const [historico, setHistorico] = useState([]);
   const bottomRef = useRef(null);
 
   useEffect(() => {
@@ -95,7 +96,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (user) verificarAssinatura();
+    if (user) {
+      verificarAssinatura();
+      carregarHistorico();
+    }
   }, [user]);
 
   useEffect(() => {
@@ -126,11 +130,46 @@ export default function App() {
     } catch {}
   };
 
+  const carregarHistorico = async () => {
+    const { data } = await supabase
+      .from("conversas")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("atualizado_em", { ascending: false })
+      .limit(20);
+    if (data) setHistorico(data);
+  };
+
+  const salvarConversa = async (msgs, idModulo) => {
+    if (conversaId) {
+      await supabase.from("conversas").update({ mensagens: msgs, atualizado_em: new Date().toISOString() }).eq("id", conversaId);
+    } else {
+      const { data } = await supabase.from("conversas").insert({ user_id: user.id, modulo: idModulo, mensagens: msgs }).select().single();
+      if (data) setConversaId(data.id);
+    }
+    carregarHistorico();
+  };
+
+  const abrirConversa = (conversa) => {
+    const mod = MODULES.find(m => m.id === conversa.modulo) || MODULES[0];
+    setModulo(mod);
+    setMessages(conversa.mensagens);
+    setConversaId(conversa.id);
+    setAba("agente");
+  };
+
+  const novaConversa = () => {
+    setMessages([]);
+    setConversaId(null);
+    setAba("agente");
+  };
+
   const sair = async () => {
     await supabase.auth.signOut();
     setUser(null);
     setMessages([]);
     setIsPro(false);
+    setHistorico([]);
   };
 
   const enviar = async () => {
@@ -147,7 +186,9 @@ export default function App() {
         body: JSON.stringify({ messages: newMessages, systemPrompt: modulo.systemPrompt }),
       });
       const data = await res.json();
-      setMessages([...newMessages, { role: "assistant", content: data.response || "Erro: " + (data.error || "Tente novamente.") }]);
+      const finalMessages = [...newMessages, { role: "assistant", content: data.response || "Erro: " + (data.error || "Tente novamente.") }];
+      setMessages(finalMessages);
+      salvarConversa(finalMessages, modulo.id);
     } catch {
       setMessages([...newMessages, { role: "assistant", content: "Erro de conexão. Verifique o servidor." }]);
     }
@@ -163,7 +204,6 @@ export default function App() {
     <div style={{ minHeight: "100vh", background: "#0a0a18", color: "#e2e8f0", fontFamily: "system-ui, sans-serif", display: "flex", flexDirection: "column", alignItems: "center", padding: "24px 16px" }}>
       <div style={{ width: "100%", maxWidth: 600 }}>
 
-        {/* Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <div style={{ width: 40, height: 40, borderRadius: 12, background: modulo.color + "22", border: `1px solid ${modulo.color}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: modulo.color }}>{modulo.icon}</div>
@@ -175,17 +215,6 @@ export default function App() {
           <button onClick={sair} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #2a2a3e", background: "#12122a", color: "#6a6a8a", fontSize: 12, cursor: "pointer" }}>Sair</button>
         </div>
 
-        {/* Banner Ad - só para usuários não Pro */}
-        {!isPro && adVisible && (
-          <div style={{ background: "#12122a", border: "1px solid #2a2a3e", borderRadius: 12, padding: "12px 16px", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div style={{ fontSize: 12, color: "#6a6a8a" }}>
-              📢 Anúncio — <span style={{ color: "#a78bfa", cursor: "pointer", fontWeight: 600 }} onClick={assinarPro}>Remova por R$9,90/mês</span>
-            </div>
-            <button onClick={() => setAdVisible(false)} style={{ background: "none", border: "none", color: "#4a4a6a", cursor: "pointer", fontSize: 16 }}>×</button>
-          </div>
-        )}
-
-        {/* Upgrade Banner - só para não Pro */}
         {!isPro && (
           <div onClick={assinarPro} style={{ background: "linear-gradient(135deg, #a78bfa22, #f472b622)", border: "1px solid #a78bfa44", borderRadius: 12, padding: "10px 16px", marginBottom: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ fontSize: 13, color: "#e2e8f0" }}>⚡ <strong>Agente Creator Pro</strong> — Sem anúncios por R$9,90/mês</div>
@@ -193,16 +222,14 @@ export default function App() {
           </div>
         )}
 
-        {/* Abas */}
         <div style={{ display: "flex", gap: 4, marginBottom: 20, background: "#0d0d1a", borderRadius: 12, padding: 4 }}>
-          {["agente", "modulos"].map(a => (
-            <button key={a} onClick={() => setAba(a)} style={{ flex: 1, padding: "8px 0", borderRadius: 9, border: "none", background: aba === a ? "#1a1a2e" : "transparent", color: aba === a ? "#e2e8f0" : "#6a6a8a", fontSize: 13, cursor: "pointer", fontWeight: aba === a ? 600 : 400 }}>
-              {a === "agente" ? "💬 Agente" : "⚡ Módulos"}
+          {["agente", "historico", "modulos"].map(a => (
+            <button key={a} onClick={() => setAba(a)} style={{ flex: 1, padding: "8px 0", borderRadius: 9, border: "none", background: aba === a ? "#1a1a2e" : "transparent", color: aba === a ? "#e2e8f0" : "#6a6a8a", fontSize: 12, cursor: "pointer", fontWeight: aba === a ? 600 : 400 }}>
+              {a === "agente" ? "💬 Agente" : a === "historico" ? "🕘 Histórico" : "⚡ Módulos"}
             </button>
           ))}
         </div>
 
-        {/* Chat */}
         {aba === "agente" && (
           <div>
             <div style={{ minHeight: 400, maxHeight: 500, overflowY: "auto", display: "flex", flexDirection: "column", gap: 12, marginBottom: 16 }}>
@@ -228,12 +255,35 @@ export default function App() {
           </div>
         )}
 
-        {/* Módulos */}
+        {aba === "historico" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+              <div style={{ fontSize: 12, color: "#6a6a8a" }}>Conversas salvas</div>
+              <button onClick={novaConversa} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #a78bfa44", background: "#a78bfa22", color: "#a78bfa", fontSize: 12, cursor: "pointer" }}>+ Nova conversa</button>
+            </div>
+            {historico.length === 0 && <div style={{ textAlign: "center", color: "#4a4a6a", marginTop: 40, fontSize: 13 }}>Nenhuma conversa salva ainda.</div>}
+            {historico.map(c => {
+              const mod = MODULES.find(m => m.id === c.modulo) || MODULES[0];
+              const ultimaMsg = c.mensagens?.[c.mensagens.length - 1]?.content || "Conversa vazia";
+              return (
+                <div key={c.id} onClick={() => abrirConversa(c)} style={{ padding: "12px 16px", borderRadius: 12, border: `1px solid ${conversaId === c.id ? mod.color + "66" : "#1e1e3a"}`, background: conversaId === c.id ? mod.color + "11" : "#0d0d1a", cursor: "pointer" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                    <span style={{ color: mod.color, fontSize: 14 }}>{mod.icon}</span>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0" }}>{mod.label}</span>
+                    <span style={{ fontSize: 11, color: "#4a4a6a", marginLeft: "auto" }}>{new Date(c.atualizado_em).toLocaleDateString("pt-BR")}</span>
+                  </div>
+                  <div style={{ fontSize: 12, color: "#6a6a8a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ultimaMsg.slice(0, 80)}</div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         {aba === "modulos" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={{ fontSize: 12, color: "#6a6a8a", marginBottom: 4 }}>Selecione o módulo ativo</div>
             {MODULES.map(m => (
-              <div key={m.id} onClick={() => { setModulo(m); setAba("agente"); setMessages([]); }} style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", borderRadius: 14, border: `1px solid ${modulo.id === m.id ? m.color + "66" : "#1e1e3a"}`, background: modulo.id === m.id ? m.color + "11" : "#0d0d1a", cursor: "pointer" }}>
+              <div key={m.id} onClick={() => { setModulo(m); setAba("agente"); setMessages([]); setConversaId(null); }} style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", borderRadius: 14, border: `1px solid ${modulo.id === m.id ? m.color + "66" : "#1e1e3a"}`, background: modulo.id === m.id ? m.color + "11" : "#0d0d1a", cursor: "pointer" }}>
                 <div style={{ fontSize: 22, color: m.color }}>{m.icon}</div>
                 <div>
                   <div style={{ fontWeight: 600, fontSize: 14, color: modulo.id === m.id ? "#e2e8f0" : "#8a8ab0" }}>{m.label}</div>
