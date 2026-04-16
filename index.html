@@ -1,12 +1,42 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Agente Autônomo</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<head>
+<meta charset="UTF-8">
+<title>Conectar WhatsApp</title>
+<style>
+  body { font-family: sans-serif; background: #0f0f0f; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+  #qr-box { background: #fff; padding: 20px; border-radius: 12px; margin: 24px 0; min-width: 200px; min-height: 200px; display: flex; align-items: center; justify-content: center; }
+  #qr-box img { max-width: 280px; }
+  .spinner { border: 4px solid #333; border-top: 4px solid #25d366; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  button { background: #25d366; color: #fff; border: none; padding: 12px 28px; border-radius: 8px; font-size: 16px; cursor: pointer; }
+</style>
+</head>
+<body>
+<h1>Conectar WhatsApp</h1>
+<div id="qr-box"><div class="spinner"></div></div>
+<div id="status">Buscando QR Code...</div>
+<br><button onclick="buscarQR()">Atualizar</button>
+<script>
+async function buscarQR() {
+  document.getElementById('status').textContent = 'Buscando...';
+  document.getElementById('qr-box').innerHTML = '<div class="spinner"></div>';
+  try {
+    const r = await fetch('/api/qr');
+    const data = await r.json();
+    if (data.base64) {
+      const src = data.base64.startsWith('data:') ? data.base64 : 'data:image/png;base64,' + data.base64;
+      document.getElementById('qr-box').innerHTML = `<img src="${src}">`;
+      document.getElementById('status').textContent = 'Escaneie agora!';
+    } else {
+      document.getElementById('status').textContent = 'QR não gerado ainda. Aguarde...';
+      setTimeout(buscarQR, 3000);
+    }
+  } catch(e) {
+    document.getElementById('status').textContent = 'Erro: ' + e.message;
+  }
+}
+buscarQR();
+</script>
+</body>
 </html>
